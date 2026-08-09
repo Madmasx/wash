@@ -1,0 +1,14 @@
+# Binarios compilados
+wash
+wash.exe
+whatscli
+whatscli.exe
+
+# Datos de sesión / WhatsApp (defensa extra: jamás subir la DB)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Sistema
+.DS_Store
