@@ -1,8 +1,8 @@
 # 🐚 WaSh — WhatsApp desde tu terminal
 
-> **v2.0.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
+> **v2.1.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
 
-![WaSh screenshot](/doc/WaSh.png?raw=true "WaSh v2.0.0")
+![WaSh screenshot](/doc/WaSh.png?raw=true "WaSh v2.1.0")
 
 WaSh (antes *whatscli*) es un cliente de WhatsApp que vive en tu terminal: se conecta a través de la API Web (sin navegador), se vincula escaneando un código QR y te deja chatear, mandar archivos y gestionar grupos con el teclado y una interfaz limpia en español.
 

@@ -12,3 +12,6 @@ whatscli.exe
 
 # Sistema
 .DS_Store
+
+# Grafo de graphify (generado, no forma parte del repo)
+graphify-out/
