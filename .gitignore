@@ -15,3 +15,6 @@ whatscli.exe
 
 # Grafo de graphify (generado, no forma parte del repo)
 graphify-out/
+
+# Restos del montaje FUSE (NTFS)
+.fuse_hidden*
