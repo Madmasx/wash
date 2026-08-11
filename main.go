@@ -86,6 +86,7 @@ func main() {
 		})
 	textView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
 	textView.SetTextColor(tcell.ColorNames[config.Config.Colors.Text])
+	textView.SetMouseCapture(linkClickCapture)
 
 	PrintHelp()
 
@@ -544,65 +545,66 @@ func LoadShortcuts() {
 // prints help to chat view
 func PrintHelp() {
 	cmdPrefix := config.Config.General.CmdPrefix
-	fmt.Fprintln(textView, "[-::u]"+config.T("help.keys")+"[-::-]")
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, config.T("help.global"))
-	fmt.Fprintln(textView, "[::b] Up/Down[::-] = "+config.T("help.scroll"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.SwitchPanels, "[::-] = "+config.T("help.switch_input"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.FocusMessages, "[::-] = "+config.T("help.focus_msg"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.CommandQuit, "[::-] = "+config.T("help.exit"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"lang[::-] [es|en] = "+config.T("help.lang"))
-	fmt.Fprintln(textView, "[::b] Drop[::-] file = "+config.T("help.dragdrop"))
-	fmt.Fprintln(textView, "[::b] @Name[::-] = "+config.T("help.mention"))
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::-]"+config.T("help.msg_panel")+"[-::-]")
-	fmt.Fprintln(textView, "[::b] Up/Down[::-] = "+config.T("help.select_msg"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageDownload, "[::-] = "+config.T("help.download"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageOpen, "[::-] = "+config.T("help.open"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageShow, "[::-] = "+config.T("help.show"), config.Config.General.ShowCommand)
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageUrl, "[::-] = "+config.T("help.url"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageRevoke, "[::-] = "+config.T("help.revoke"))
-	fmt.Fprintln(textView, "[::b]", config.Config.Keymap.MessageInfo, "[::-] = "+config.T("help.info"))
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, config.T("help.config_file"), config.GetConfigFilePath())
-	fmt.Fprintln(textView, "")
-	fmt.Fprintf(textView, config.T("help.type_commands")+"\n", cmdPrefix+"commands")
-	fmt.Fprintln(textView, "")
+	tviewLine("[-::u]" + config.T("help.keys") + "[-::-]")
+	tviewLine("")
+	tviewLine(config.T("help.global"))
+	tviewLine("[::b] Up/Down[::-] = " + config.T("help.scroll"))
+	tviewLine("[::b]", config.Config.Keymap.SwitchPanels, "[::-] = "+config.T("help.switch_input"))
+	tviewLine("[::b]", config.Config.Keymap.FocusMessages, "[::-] = "+config.T("help.focus_msg"))
+	tviewLine("[::b]", config.Config.Keymap.CommandQuit, "[::-] = "+config.T("help.exit"))
+	tviewLine("[::b] " + cmdPrefix + "lang[::-] [es|en] = " + config.T("help.lang"))
+	tviewLine("[::b] Drop[::-] file = " + config.T("help.dragdrop"))
+	tviewLine("[::b] @Name[::-] = " + config.T("help.mention"))
+	tviewLine("")
+	tviewLine("[-::-]" + config.T("help.msg_panel") + "[-::-]")
+	tviewLine("[::b] Up/Down[::-] = " + config.T("help.select_msg"))
+	tviewLine("[::b]", config.Config.Keymap.MessageDownload, "[::-] = "+config.T("help.download"))
+	tviewLine("[::b]", config.Config.Keymap.MessageOpen, "[::-] = "+config.T("help.open"))
+	tviewLine("[::b]", config.Config.Keymap.MessageShow, "[::-] = "+config.T("help.show"), config.Config.General.ShowCommand)
+	tviewLine("[::b]", config.Config.Keymap.MessageUrl, "[::-] = "+config.T("help.url"))
+	tviewLine("[::d] " + config.T("help.click_link"))
+	tviewLine("[::b]", config.Config.Keymap.MessageRevoke, "[::-] = "+config.T("help.revoke"))
+	tviewLine("[::b]", config.Config.Keymap.MessageInfo, "[::-] = "+config.T("help.info"))
+	tviewLine("")
+	tviewLine(config.T("help.config_file"), config.GetConfigFilePath())
+	tviewLine("")
+	tviewLine(fmt.Sprintf(config.T("help.type_commands"), cmdPrefix+"commands"))
+	tviewLine("")
 }
 
 func PrintCommands() {
 	cmdPrefix := config.Config.General.CmdPrefix
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::u]"+config.T("cmds.commands")+"[-::-]")
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::-]"+config.T("cmds.global")+"[-::-]")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = "+config.T("cmds.connect"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"disconnect[::-]  = "+config.T("cmds.disconnect"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"logout[::-]  = "+config.T("cmds.logout"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"reset[::-]  = "+config.T("cmds.reset"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = "+config.T("cmds.quit"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"lang[::-] [es|en]  = "+config.T("cmds.lang"))
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::-]"+config.T("cmds.chat")+"[-::-]")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = "+fmt.Sprintf(config.T("cmds.backlog"), config.Config.General.BacklogMsgQuantity))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"read [::-]or[::b]", config.Config.Keymap.CommandRead, "[::-] = "+config.T("cmds.read"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"upload[::-] /path/to/file  = "+config.T("cmds.upload"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendimage[::-] /path/to/file  = "+config.T("cmds.sendimage"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendvideo[::-] /path/to/file  = "+config.T("cmds.sendvideo"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"sendaudio[::-] /path/to/file  = "+config.T("cmds.sendaudio"))
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "[-::-]"+config.T("cmds.groups")+"[-::-]")
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"leave[::-]  = "+config.T("cmds.leave"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"create[::-] [user-id[] [user-id[] Group Subject  = "+config.T("cmds.create"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"subject[::-] New Subject  = "+config.T("cmds.subject"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"add[::-] [user-id[]  = "+config.T("cmds.add"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"remove[::-] [user-id[]  = "+config.T("cmds.remove"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"admin[::-] [user-id[]  = "+config.T("cmds.admin"))
-	fmt.Fprintln(textView, "[::b] "+cmdPrefix+"removeadmin[::-] [user-id[]  = "+config.T("cmds.removeadmin"))
-	fmt.Fprintln(textView, "")
-	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.Copyuser, "[::-]"+config.T("cmds.copyid"))
-	fmt.Fprintln(textView, "Use[::b]", config.Config.Keymap.Pasteuser, "[::-]"+config.T("cmds.paste"))
-	fmt.Fprintln(textView, "")
+	tviewLine("")
+	tviewLine("[-::u]" + config.T("cmds.commands") + "[-::-]")
+	tviewLine("")
+	tviewLine("[-::-]" + config.T("cmds.global") + "[-::-]")
+	tviewLine("[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = "+config.T("cmds.connect"))
+	tviewLine("[::b] " + cmdPrefix + "disconnect[::-]  = " + config.T("cmds.disconnect"))
+	tviewLine("[::b] " + cmdPrefix + "logout[::-]  = " + config.T("cmds.logout"))
+	tviewLine("[::b] " + cmdPrefix + "reset[::-]  = " + config.T("cmds.reset"))
+	tviewLine("[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = "+config.T("cmds.quit"))
+	tviewLine("[::b] " + cmdPrefix + "lang[::-] [es|en]  = " + config.T("cmds.lang"))
+	tviewLine("")
+	tviewLine("[-::-]" + config.T("cmds.chat") + "[-::-]")
+	tviewLine("[::b] "+cmdPrefix+"backlog [::-]or[::b]", config.Config.Keymap.CommandBacklog, "[::-] = "+fmt.Sprintf(config.T("cmds.backlog"), config.Config.General.BacklogMsgQuantity))
+	tviewLine("[::b] "+cmdPrefix+"read [::-]or[::b]", config.Config.Keymap.CommandRead, "[::-] = "+config.T("cmds.read"))
+	tviewLine("[::b] " + cmdPrefix + "upload[::-] /path/to/file  = " + config.T("cmds.upload"))
+	tviewLine("[::b] " + cmdPrefix + "sendimage[::-] /path/to/file  = " + config.T("cmds.sendimage"))
+	tviewLine("[::b] " + cmdPrefix + "sendvideo[::-] /path/to/file  = " + config.T("cmds.sendvideo"))
+	tviewLine("[::b] " + cmdPrefix + "sendaudio[::-] /path/to/file  = " + config.T("cmds.sendaudio"))
+	tviewLine("")
+	tviewLine("[-::-]" + config.T("cmds.groups") + "[-::-]")
+	tviewLine("[::b] " + cmdPrefix + "leave[::-]  = " + config.T("cmds.leave"))
+	tviewLine("[::b] " + cmdPrefix + "create[::-] [user-id[] [user-id[] Group Subject  = " + config.T("cmds.create"))
+	tviewLine("[::b] " + cmdPrefix + "subject[::-] New Subject  = " + config.T("cmds.subject"))
+	tviewLine("[::b] " + cmdPrefix + "add[::-] [user-id[]  = " + config.T("cmds.add"))
+	tviewLine("[::b] " + cmdPrefix + "remove[::-] [user-id[]  = " + config.T("cmds.remove"))
+	tviewLine("[::b] " + cmdPrefix + "admin[::-] [user-id[]  = " + config.T("cmds.admin"))
+	tviewLine("[::b] " + cmdPrefix + "removeadmin[::-] [user-id[]  = " + config.T("cmds.removeadmin"))
+	tviewLine("")
+	tviewLine("Use[::b]", config.Config.Keymap.Copyuser, "[::-]"+config.T("cmds.copyid"))
+	tviewLine("Use[::b]", config.Config.Keymap.Pasteuser, "[::-]"+config.T("cmds.paste"))
+	tviewLine("")
 }
 
 // called when text is entered by the user
@@ -852,7 +854,7 @@ func ResetMsgSelection() {
 
 // prints text to the TextView
 func PrintText(txt string) {
-	fmt.Fprintln(textView, txt)
+	tviewLine(txt)
 }
 
 // prints an error to the TextView
@@ -860,7 +862,7 @@ func PrintError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", err.Error(), "[-]")
+	tviewLine("["+config.Config.Colors.Negative+"]", err.Error(), "[-]")
 }
 
 // prints an error to the TextView
@@ -868,7 +870,7 @@ func PrintErrorMsg(text string, err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(textView, "["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
+	tviewLine("["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
 }
 
 // prints an image attachment to the TextView (by message id)
@@ -887,6 +889,9 @@ func PrintImage(path string) {
 	if stdout, err = cmd.StdoutPipe(); err == nil {
 		if err = cmd.Start(); err == nil {
 			reader := bufio.NewReader(stdout)
+			// ANSI image output has an unknown line count: log a sentinel so
+			// the link index stops being authoritative below this point.
+			linkLogAppend("\x00[image]")
 			io.Copy(tview.ANSIWriter(textView), reader)
 			return
 		}
@@ -927,6 +932,7 @@ func SetDisplayedChat(wid messages.Chat) {
 	//TODO: how to get chat to set
 	currentReceiver = wid
 	textView.Clear()
+	linkLogReset()
 	textView.SetTitle(wid.Name)
 	sessionManager.CommandChannel <- messages.Command{"select", []string{currentReceiver.Id}}
 }
@@ -947,7 +953,7 @@ func getTextMessageString(msg *messages.Message) string {
 	colorMe := config.Config.Colors.ChatMe
 	colorContact := config.Config.Colors.ChatContact
 	out := ""
-	text := tview.Escape(msg.Text)
+	text := colorizeLinks(tview.Escape(msg.Text))
 	if msg.Forwarded {
 		text = "[" + config.Config.Colors.ForwardedText + "]" + text + "[-]"
 	}
@@ -979,8 +985,10 @@ func (u UiHandler) NewMessage(msg messages.Message) {
 func (u UiHandler) NewScreen(msgs []messages.Message) {
 	go app.QueueUpdateDraw(func() {
 		textView.Clear()
+		linkLogReset()
 		screen := getMessagesString(msgs)
 		textView.SetText(screen)
+		linkLogAppendText(screen)
 		curRegions = msgs
 		if screen == "" {
 			if currentReceiver.Id == "" {

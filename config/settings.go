@@ -64,6 +64,7 @@ type Colors struct {
 	ListGroup       string
 	ChatContact     string
 	ChatMe          string
+	LinkColor       string
 	Borders         string
 	InputBackground string
 	InputText       string
@@ -115,6 +116,7 @@ var Config = IniFile{
 		ListGroup:       "cyan",
 		ChatContact:     "green",
 		ChatMe:          "cyan",
+		LinkColor:       "lightblue",
 		Borders:         "purple",
 		InputBackground: "default",
 		InputText:       "white",

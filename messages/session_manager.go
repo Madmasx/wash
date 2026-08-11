@@ -129,7 +129,7 @@ func (sm *SessionManager) runManager() error {
 		}
 	}
 
-	fmt.Fprintln(sm.uiHandler.GetWriter(), config.T("session.closing"))
+	sm.uiHandler.PrintText(config.T("session.closing"))
 	if sm.client != nil {
 		sm.client.Disconnect()
 	}

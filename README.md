@@ -24,6 +24,7 @@ WaSh (antes *whatscli*) es un cliente de WhatsApp que vive en tu terminal: se co
 - **📎 Arrastrar y soltar**: suelta un archivo sobre la ventana de la terminal (WezTerm, kitty…) y presiona `Enter` — WaSh detecta la ruta y lo envía como adjunto según su tipo
 - **👤 Menciones `@contacto`**: escribe `@` y aparecen sugerencias de tu lista de contactos mientras escribes; navega con `↑/↓`, `Enter` para fijar y `Enter` para **abrir la conversación directa**. Dentro de un mensaje, `@Nombre` se convierte al formato real de WhatsApp (`@5215512345678`)
 - **⌨️ Autocompletado de comandos**: escribe `/` y se listan todos los comandos; sigue escribiendo para filtrarlos (`/send` → `/sendimage`, `/sendvideo`…)
+- **🖱️ Enlaces clicables**: las URLs de los mensajes se resaltan en color (configurable con `LinkColor` en `[colors]`) y un clic sobre ellas las abre directamente en tu navegador
 - **🌐 Bilingüe**: interfaz en español (por defecto) o inglés, cambiable en caliente con `/lang es|en`
 - 🎨 Colores totalmente personalizables (tema Dracula listo en la config)
 
@@ -131,13 +132,14 @@ go run .            # ejecución en desarrollo
 ### Estructura
 
 - **`main.go`** — toda la UI (tview): árbol de chats/grupos/estados/contactos, campo de entrada con autocompletado de comandos y menciones, drag & drop, pegado de capturas y gestión de mensajes.
+- **`links.go`** — enlaces clicables: índice línea→URL de la vista de mensajes (replica el wrapping de tview para mapear el clic exacto) y apertura en el navegador.
 - **`messages/`** — el núcleo: `session_manager.go` (rutina separada que drena los comandos de la UI y los eventos de whatsmeow vía canales), `storage.go` (base de datos SQLite), `messages.go` (estructuras e interfaces).
 - **`config/`** — singleton de configuración (ini) y sistema de traducción es/en (`i18n.go`).
 - **`qrcode/`** — renderizado del QR de inicio de sesión.
 
 ## 📜 Créditos
 
-WaSh es un fork con mucho cariño de [whatscli](https://github.com/normen/whatscli) (MIT) — gracias a su autor original por la base. Las mejoras: interfaz en español, sección de grupos y estados, autocompletado de comandos y contactos, drag & drop, pegado de capturas y tema Dracula.
+WaSh es un fork con mucho cariño de [whatscli](https://github.com/normen/whatscli) (MIT) — gracias a su autor original por la base. Las mejoras: interfaz en español, sección de grupos y estados, autocompletado de comandos y contactos, drag & drop, pegado de capturas, enlaces clicables y tema Dracula.
 
 Hecho con ❤️, ☕ y mucha paciencia por **[@madmasx](https://github.com/madmasx)** 😎
 
