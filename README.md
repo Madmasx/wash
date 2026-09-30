@@ -1,8 +1,8 @@
 # 🐚 WaSh — WhatsApp desde tu terminal
 
-> **v2.1.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
+> **v2.2.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
 
-![WaSh screenshot](/doc/WaSh.png?raw=true "WaSh v2.1.0")
+![WaSh screenshot](/doc/WaSh.png?raw=true "WaSh v2.2.0")
 
 WaSh (antes *whatscli*) es un cliente de WhatsApp que vive en tu terminal: se conecta a través de la API Web (sin navegador), se vincula escaneando un código QR y te deja chatear, mandar archivos y gestionar grupos con el teclado y una interfaz limpia en español.
 
@@ -13,9 +13,10 @@ WaSh (antes *whatscli*) es un cliente de WhatsApp que vive en tu terminal: se co
 ### Chats y mensajes
 - 💬 Envía y recibe mensajes de WhatsApp desde la terminal
 - 🔗 Conexión por la API Web de WhatsApp, sin navegador
-- 📱 Vinculación simple con código QR (escalado automático con caracteres half-block para que se vea completo)
+- 📱 Vinculación simple con código QR, mostrado como bloque al final del chat (nunca tapa el texto) — ¡y como caracteres half-block para que se vea completo!
 - 🗂️ **Secciones separadas en el árbol**: `Chats` (conversaciones privadas), `Grupos` (@g.us), `Estados` y `Contactos`
-- 📥 Descarga y abre adjuntos (imagen/video/audio/documento) con tu visor externo
+- 📥 Descarga y abre adjuntos (imagen/video/audio/documento) con tu visor del sistema
+- 🔢 **Adjuntos numerados `[#N]` por chat**: `/show N` abre el N-ésimo adjunto directo con tu visor, sin buscar su id
 - 📤 Envía imágenes, videos, audios y documentos
 - 🔔 Notificaciones de escritorio y campana de terminal
 
@@ -67,7 +68,9 @@ Escribe `/help` o `/commands` dentro de la app para ver toda la ayuda en pantall
 | `/upload <ruta>` | Enviar cualquier archivo como documento |
 | `/backlog` | Cargar mensajes anteriores del chat |
 | `/read` | Marcar mensajes como leídos |
-| `/download` · `/open` · `/show` · `/url` | Acciones sobre el mensaje seleccionado |
+| `/download` · `/open` | Descargar, o descargar y abrir el mensaje seleccionado |
+| `/show N` | Abrir el adjunto `#N` del chat (numerados `[#N]`) con tu visor del sistema |
+| `/url` | Abrir la URL del mensaje seleccionado |
 | `/revoke` | Revocar mensaje |
 | `/create <ids> <asunto>` | Crear grupo |
 | `/leave` | Salir del grupo actual |
@@ -119,7 +122,7 @@ La configuración vive en `~/.config/wash/wash.config` (la ruta exacta la muestr
   negative         = red
   ```
 - **Atajos de teclado**: sección `[keymap]` (foco, mensajes, copiar/pegar…)
-- **Descargas**: `download_path` y `preview_path`
+- **Descargas**: `download_path` y `preview_path` — los adjuntos caen en `<ruta>/wash/`, no sueltos en la carpeta base.
 
 ## 🛠️ Desarrollo
 
