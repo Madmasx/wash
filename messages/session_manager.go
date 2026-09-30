@@ -230,25 +230,60 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 	return errors.New("QR code channel closed without success")
 }
 
+// recentChatRetries is how many times startup re-tries loading chats and
+// groups before giving up. A freshly-linked device takes a few seconds to
+// finish its initial sync, so a single attempt often ends up empty.
+const recentChatRetries = 6
+
 func (sm *SessionManager) loadRecentChats() {
 	if sm.client == nil || !sm.client.IsConnected() {
-		sm.uiHandler.PrintError(errors.New("not connected to WhatsApp"))
+		go func() {
+			time.Sleep(2 * time.Second)
+			sm.loadRecentChatsWithRetry(recentChatRetries - 1)
+		}()
+		return
+	}
+	sm.loadRecentChatsWithRetry(recentChatRetries)
+}
+
+func (sm *SessionManager) loadRecentChatsWithRetry(attempts int) {
+	if sm.client == nil || !sm.client.IsConnected() {
+		if attempts > 0 {
+			go func() {
+				time.Sleep(2 * time.Second)
+				sm.loadRecentChatsWithRetry(attempts - 1)
+			}()
+		}
 		return
 	}
 
 	sm.loadContacts()
-	addedChats := 0
 
-	groups, err := sm.client.GetJoinedGroups(context.Background())
-	if err == nil {
-		for _, group := range groups {
-			sm.db.AddChat(Chat{
-				Id:      group.JID.String(),
-				IsGroup: true,
-				Name:    group.Name,
-			})
-			addedChats++
+	if err := sm.loadGroups(); err != nil {
+		if attempts > 0 {
+			go func() {
+				time.Sleep(3 * time.Second)
+				sm.loadRecentChatsWithRetry(attempts - 1)
+			}()
 		}
+	}
+}
+
+func (sm *SessionManager) loadGroups() error {
+	groups, err := sm.client.GetJoinedGroups(context.Background())
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("failed to load groups: %v", err))
+		return err
+	}
+
+	addedChats := 0
+	for _, group := range groups {
+		sm.db.AddChat(Chat{
+			Id:      group.JID.String(),
+			IsGroup: true,
+			Name:    group.Name,
+		})
+		addedChats++
 	}
 
 	sm.uiHandler.SetChats(sm.db.GetChatIds())
@@ -256,6 +291,7 @@ func (sm *SessionManager) loadRecentChats() {
 	if addedChats > 0 {
 		sm.uiHandler.PrintText(fmt.Sprintf("Loaded %d chats", addedChats))
 	}
+	return nil
 }
 
 func (sm *SessionManager) loadContacts() {
@@ -1029,6 +1065,7 @@ func (eh *eventHandler) handleLiveMessage(evt *events.Message) {
 		}
 	}
 	eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
+	eh.sm.uiHandler.SetContacts(eh.sm.db.GetContacts())
 }
 
 func (eh *eventHandler) handleHistorySync(evt *events.HistorySync) {
@@ -1115,6 +1152,7 @@ func (eh *eventHandler) handleHistorySync(evt *events.HistorySync) {
 
 	eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
 	eh.sm.uiHandler.SetStatuses(eh.sm.db.GetStatuses())
+	eh.sm.uiHandler.SetContacts(eh.sm.db.GetContacts())
 	if eh.sm.currentReceiver != "" {
 		eh.sm.uiHandler.NewScreen(eh.sm.getMessages(eh.sm.currentReceiver))
 	}
