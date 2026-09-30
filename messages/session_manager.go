@@ -167,8 +167,47 @@ func (sm *SessionManager) fetchOlderHistory(chatID string) {
 		return
 	}
 
-	earliest := msgs[0]
-	senderJID, err := types.ParseJID(earliest.SenderId)
+	if err := sm.requestHistoryBefore(chatJID, msgs[0]); err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("failed to request older messages: %v", err))
+		return
+	}
+	sm.historyFetches[chatID]++
+	sm.uiHandler.PrintText("Requesting older messages…")
+}
+
+// fetchOlderStatuses asks the primary device for older statuses of the
+// status@broadcast story feed, anchored on the oldest status already stored.
+// It runs at startup so recent statuses populate the "Estados" view as soon as
+// the initial sync delivers the first ones.
+func (sm *SessionManager) fetchOlderStatuses() {
+	if sm.client == nil || !sm.client.IsConnected() || sm.historyFetches[STATUSSUFFIX] >= historyFetchLimit {
+		return
+	}
+
+	statuses := sm.db.GetStatuses()
+	if len(statuses) == 0 || len(statuses) >= historyFetchCount {
+		// no anchor to walk back from, or the feed is already well stocked
+		return
+	}
+
+	chatJID, err := types.ParseJID(STATUSSUFFIX)
+	if err != nil || chatJID.IsEmpty() {
+		return
+	}
+
+	if err := sm.requestHistoryBefore(chatJID, statuses[len(statuses)-1]); err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("failed to request older statuses: %v", err))
+		return
+	}
+	sm.historyFetches[STATUSSUFFIX]++
+	sm.uiHandler.PrintText("Requesting older statuses…")
+}
+
+// requestHistoryBefore builds and sends an on-demand history sync anchored on
+// a single stored message, asking the primary device for historyFetchCount
+// messages older than it. The reply arrives as an events.HistorySync.
+func (sm *SessionManager) requestHistoryBefore(chatJID types.JID, anchor Message) error {
+	senderJID, err := types.ParseJID(anchor.SenderId)
 	if err != nil || senderJID.IsEmpty() {
 		senderJID = chatJID
 	}
@@ -177,19 +216,15 @@ func (sm *SessionManager) fetchOlderHistory(chatID string) {
 		MessageSource: types.MessageSource{
 			Chat:     chatJID,
 			Sender:   senderJID,
-			IsFromMe: earliest.FromMe,
+			IsFromMe: anchor.FromMe,
 		},
-		ID:        types.MessageID(earliest.Id),
-		Timestamp: time.Unix(int64(earliest.Timestamp), 0),
+		ID:        types.MessageID(anchor.Id),
+		Timestamp: time.Unix(int64(anchor.Timestamp), 0),
 	}
 
 	req := sm.client.BuildHistorySyncRequest(msgInfo, historyFetchCount)
-	if _, err := sm.client.SendPeerMessage(context.Background(), req); err != nil {
-		sm.uiHandler.PrintError(fmt.Errorf("failed to request older messages: %v", err))
-		return
-	}
-	sm.historyFetches[chatID]++
-	sm.uiHandler.PrintText("Requesting older messages…")
+	_, err = sm.client.SendPeerMessage(context.Background(), req)
+	return err
 }
 
 func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
@@ -326,7 +361,12 @@ func (sm *SessionManager) loadRecentChatsWithRetry(attempts int) {
 				sm.loadRecentChatsWithRetry(attempts - 1)
 			}()
 		}
+		return
 	}
+
+	// Recent statuses arrive with the initial sync; once the first one lands
+	// we can anchor an on-demand request and pull the rest of the feed.
+	sm.fetchOlderStatuses()
 }
 
 func (sm *SessionManager) loadGroups() error {
@@ -1256,6 +1296,9 @@ func (eh *eventHandler) handleHistorySync(evt *events.HistorySync) {
 	eh.sm.uiHandler.SetChats(eh.sm.db.GetChatIds())
 	eh.sm.uiHandler.SetStatuses(eh.sm.db.GetStatuses())
 	eh.sm.uiHandler.SetContacts(eh.sm.db.GetContacts())
+	// Each history sync may deliver more statuses; keep backfilling the
+	// story feed until we have a good batch or hit the per-feed retry cap.
+	eh.sm.fetchOlderStatuses()
 	if eh.sm.currentReceiver != "" {
 		eh.sm.uiHandler.NewScreen(eh.sm.getMessages(eh.sm.currentReceiver))
 	}
