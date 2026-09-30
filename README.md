@@ -36,9 +36,11 @@ WaSh (antes *whatscli*) es un cliente de WhatsApp que vive en tu terminal: se co
 
 ## 🖥️ Requisitos
 
-- **Go ≥ 1.25** para compilar
+- **Go ≥ 1.26** para compilar (sin cgo ni librerías del sistema: compila en cualquier distro)
 - **xclip** (X11) o **wl-clipboard** (Wayland) para pegar capturas de pantalla
-- Un terminal moderno con soporte de color (recomendado: [WezTerm](https://wezfurlong.org/wezterm/))
+- **xdg-utils** (`xdg-open`) para abrir adjuntos con `/open` y `/show N`
+- Un daemon de notificaciones D-Bus (cualquier escritorio lo trae) para los avisos de mensaje
+- Un terminal moderno con soporte de color y Unicode (recomendado: [WezTerm](https://wezfurlong.org/wezterm/))
 
 ## ⚙️ Instalación
 
