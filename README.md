@@ -146,8 +146,6 @@ WaSh es un fork con mucho cariño de [whatscli](https://github.com/normen/whatsc
 
 Hecho con ❤️, ☕ y mucha paciencia por **[@madmasx](https://github.com/madmasx)** 😎
 
-...y en equipo con **Hermes Agent** (de [Nous Research](https://nousresearch.com)) 🤖🧡 — el compañero de código que estuvo ahí para diseñar, implementar y probar cada una de estas funciones, sesión tras sesión. El mérito es de los dos. 😄
-
 ## 📄 Licencia
 
 MIT. Recuerda: la licencia te da libertad, pero no para borrar el crédito del proyecto original. 😉
