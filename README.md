@@ -1,6 +1,6 @@
 # 🐚 WaSh — WhatsApp desde tu terminal
 
-> **v2.2.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
+> **v2.3.0** · Cliente de WhatsApp para terminal, construido sobre [go-whatsmeow](https://github.com/tulir/whatsmeow) y [tview](https://github.com/rivo/tview)
 
 ![WaSh screenshot](/doc/WaSh-v2.2.0.png?raw=true "WaSh v2.2.0")
 

@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,9 +228,28 @@ func (sm *SessionManager) requestHistoryBefore(chatJID types.JID, anchor Message
 	return err
 }
 
+// AppVersion is the current WaSh release. It is the single place the version
+// is declared: WhatsApp is told about it on connect, and README documents it.
+const AppVersion = "2.3.0"
+
+// appVersionTuple splits AppVersion into the [major, minor, patch] triple
+// WhatsApp expects, so the reported version can never drift from this constant.
+var appVersionTuple = func() [3]uint32 {
+	var parsed [3]uint32
+	for i, part := range strings.SplitN(AppVersion, ".", len(parsed)) {
+		if i >= len(parsed) {
+			break
+		}
+		if n, err := strconv.ParseUint(part, 10, 32); err == nil {
+			parsed[i] = uint32(n)
+		}
+	}
+	return parsed
+}()
+
 func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
 	if sm.client == nil {
-		store.SetOSInfo("WaSh", [3]uint32{2, 0, 0})
+		store.SetOSInfo("WaSh", appVersionTuple)
 		dbPath := config.GetSessionFilePath() + ".db"
 		container, err := sqlstore.New(context.Background(), "sqlite", "file:"+dbPath+"?_pragma=foreign_keys(1)", waLog.Noop)
 		if err != nil {
