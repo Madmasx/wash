@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -440,6 +441,8 @@ func (sm *SessionManager) execCommand(command Command) {
 		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]" + config.T("session.unknown_cmd") + "[-]" + command.Name)
 	case "backlog":
 		sm.loadBacklog()
+	case "update":
+		sm.updateApp()
 	case "login", "connect":
 		err := sm.login()
 		if err != nil {
@@ -602,6 +605,44 @@ func (sm *SessionManager) loadBacklog() {
 		sm.uiHandler.PrintText("No additional messages found. WhatsApp may limit history access.")
 	}
 	sm.uiHandler.NewScreen(updated)
+}
+
+// updateApp pulls the latest source with git and rebuilds the binary in
+// place, so restarting WaSh runs the fresh version. The repo is the configured
+// UpdatePath or, when empty, the directory WaSh was launched from.
+func (sm *SessionManager) updateApp() {
+	dir := config.Config.General.UpdatePath
+	if dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			sm.uiHandler.PrintError(fmt.Errorf("update: cannot determine working dir: %v", err))
+			return
+		}
+		dir = wd
+	}
+
+	sm.uiHandler.PrintText(fmt.Sprintf("Updating WaSh from %s …", dir))
+
+	gitOut, err := exec.Command("git", "-C", dir, "pull", "--ff-only").CombinedOutput()
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("git pull failed: %v\n%s", err, gitOut))
+		return
+	}
+	sm.uiHandler.PrintText(strings.TrimSpace(string(gitOut)))
+
+	build := exec.Command("go", "build", "-o", "wash", ".")
+	build.Dir = dir
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	buildOut, err := build.CombinedOutput()
+	if err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("go build failed: %v\n%s", err, buildOut))
+		return
+	}
+	if out := strings.TrimSpace(string(buildOut)); out != "" {
+		sm.uiHandler.PrintText(out)
+	}
+
+	sm.uiHandler.PrintText(config.T("cmds.update_done"))
 }
 
 func (sm *SessionManager) resetSession() {

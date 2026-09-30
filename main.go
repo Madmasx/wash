@@ -619,6 +619,7 @@ func PrintCommands() {
 	tviewLine("[-::-]" + config.T("cmds.global") + "[-::-]")
 	tviewLine("[::b] "+cmdPrefix+"connect [::-]or[::b]", config.Config.Keymap.CommandConnect, "[::-] = "+config.T("cmds.connect"))
 	tviewLine("[::b] " + cmdPrefix + "disconnect[::-]  = " + config.T("cmds.disconnect"))
+	tviewLine("[::b] " + cmdPrefix + "update[::-]  = " + config.T("cmds.update"))
 	tviewLine("[::b] " + cmdPrefix + "logout[::-]  = " + config.T("cmds.logout"))
 	tviewLine("[::b] " + cmdPrefix + "reset[::-]  = " + config.T("cmds.reset"))
 	tviewLine("[::b] "+cmdPrefix+"quit [::-]or[::b]", config.Config.Keymap.CommandQuit, "[::-] = "+config.T("cmds.quit"))

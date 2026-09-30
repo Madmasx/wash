@@ -28,6 +28,7 @@ type IniFile struct {
 type General struct {
 	DownloadPath        string
 	PreviewPath         string
+	UpdatePath          string
 	CmdPrefix           string
 	EnableNotifications bool
 	UseTerminalBell     bool
