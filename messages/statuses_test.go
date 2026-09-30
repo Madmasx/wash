@@ -52,6 +52,30 @@ func TestStatusNeverEntersChatStore(t *testing.T) {
 	}
 }
 
+// TestGetStatus verifies statuses are retrievable by ID independently of the
+// per-chat message store, which /show relies on to open them.
+func TestGetStatus(t *testing.T) {
+	md := &MessageDatabase{}
+	md.Init()
+	md.AddStatus(Message{Id: "s1", ChatId: STATUSSUFFIX, SenderId: "a@s.whatsapp.net", Kind: MessageKindImage, IsStatus: true})
+
+	got, ok := md.GetStatus("s1")
+	if !ok {
+		t.Fatal("GetStatus did not find stored status")
+	}
+	if got.Id != "s1" || !got.IsStatus {
+		t.Errorf("GetStatus returned %+v", got)
+	}
+
+	if _, ok := md.GetMessage("s1"); ok {
+		t.Fatal("status must not be reachable as a chat message")
+	}
+
+	if _, ok := md.GetStatus("missing"); ok {
+		t.Fatal("GetStatus matched an unknown id")
+	}
+}
+
 // TestIsStatusDetection verifies the status detection predicate covers all
 // known ways whatsmeow delivers statuses.
 func TestIsStatusDetection(t *testing.T) {

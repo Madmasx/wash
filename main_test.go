@@ -311,6 +311,52 @@ func TestMediaNumbering(t *testing.T) {
 	}
 }
 
+// TestStatusMediaNumbering verifies the statuses tree number is independent of
+// chat numbering AND of the real status broadcast chat id, so /show N resolves
+// statuses even after a status screen rebuild resets the chat indexes.
+func TestStatusMediaNumbering(t *testing.T) {
+	mediaIndexByChat = make(map[string][]string)
+
+	// SetStatuses numbers statuses under the synthetic key.
+	mediaIndexByChat[statusMediaKey] = nil
+	for _, id := range []string{"st1", "st2", "st3"} {
+		mediaIndexByChat[statusMediaKey] = append(mediaIndexByChat[statusMediaKey], id)
+	}
+
+	if id, ok := resolveMediaNumber(statusMediaKey, 2); !ok || id != "st2" {
+		t.Fatalf("resolve statuses #2 = %q, %v; want st2,true", id, ok)
+	}
+	if _, ok := resolveMediaNumber(statusMediaKey, 4); ok {
+		t.Fatal("resolve statuses #4 must fail (only 3 statuses)")
+	}
+
+	// A status screen build keeps its own index under the real broadcast id:
+	// /show must still hit the statuses list, not the (empty) broadcast chat.
+	if _, ok := resolveMediaNumber(messages.STATUSSUFFIX, 1); ok {
+		t.Fatal("statuses must not resolve against the raw broadcast chat id")
+	}
+}
+
+// TestStatusTitle verifies the status node label covers text and media kinds.
+func TestStatusTitle(t *testing.T) {
+	config.InitConfig()
+	cases := []struct {
+		status messages.Message
+		want   string
+	}{
+		{messages.Message{Kind: messages.MessageKindText, Text: "buenas!"}, "buenas!"},
+		{messages.Message{Kind: messages.MessageKindImage}, "foto"},
+		{messages.Message{Kind: messages.MessageKindVideo}, "video"},
+		{messages.Message{Kind: messages.MessageKindAudio}, "audio"},
+		{messages.Message{Kind: messages.MessageKindImage, Text: "la playa"}, "la playa"},
+	}
+	for _, tc := range cases {
+		if got := statusTitle(tc.status); got != tc.want {
+			t.Fatalf("statusTitle(%+v) = %q, want %q", tc.status, got, tc.want)
+		}
+	}
+}
+
 // TestMediaTagFor verifies only media messages get the [#N] marker.
 func TestMediaTagFor(t *testing.T) {
 	mediaIndexByChat = make(map[string][]string)

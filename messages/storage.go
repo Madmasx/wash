@@ -307,6 +307,18 @@ func (md *MessageDatabase) GetMessage(id string) (Message, bool) {
 	return msg, ok
 }
 
+// GetStatus returns a status (story) by ID.
+func (md *MessageDatabase) GetStatus(id string) (Message, bool) {
+	md.messageLock.RLock()
+	defer md.messageLock.RUnlock()
+	for _, status := range md.statuses {
+		if status.Id == id {
+			return status, true
+		}
+	}
+	return Message{}, false
+}
+
 // GetOldestMessage returns the oldest stored message in a chat.
 func (md *MessageDatabase) GetOldestMessage(chatID string) (Message, bool) {
 	md.messageLock.RLock()

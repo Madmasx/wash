@@ -64,6 +64,11 @@ var lastHelpOverlay string
 // reset per chat) to its message id. It is only touched from the UI goroutine.
 var mediaIndexByChat map[string][]string
 
+// statusMediaKey is the synthetic chat key used to number the statuses shown
+// in the "Estados" tree. It differs from the real status broadcast chat id so
+// that rebuilding a status screen never resets the numbering.
+const statusMediaKey = "__statuses__"
+
 func main() {
 	config.InitConfig()
 	config.MigrateLegacySession()
@@ -707,10 +712,15 @@ func EnterCommand(key tcell.Key) {
 		}
 		// /show N: resolve the per-chat attachment number to its message id, so
 		// attachments get opened by the number printed next to them ([#N])
-		// without highlighting.
+		// without highlighting. Statuses shown in the "Estados" tree number
+		// their own list (statusMediaKey) so /show N works there too.
 		if cmd == "show" && len(params) == 1 {
 			if n, err := strconv.Atoi(params[0]); err == nil {
-				if id, ok := resolveMediaNumber(currentReceiver.Id, n); ok {
+				key := currentReceiver.Id
+				if strings.Contains(key, "@broadcast") {
+					key = statusMediaKey
+				}
+				if id, ok := resolveMediaNumber(key, n); ok {
 					params[0] = id
 				} else {
 					PrintError(fmt.Errorf(config.T("show.no_index"), n))
@@ -1142,26 +1152,78 @@ func (u UiHandler) SetContacts(contacts []messages.Contact) {
 func (u UiHandler) SetStatuses(statuses []messages.Message) {
 	go app.QueueUpdateDraw(func() {
 		statusRoot.ClearChildren()
+		mediaIndexByChat[statusMediaKey] = nil
+
+		type statusGroup struct {
+			name string
+			key  string
+			msgs []messages.Message
+		}
+		var groups []statusGroup
+		byContact := make(map[string]int)
 		for _, status := range statuses {
-			title := status.ContactName
-			if title == "" {
-				title = status.SenderId
+			key := status.ContactId
+			if key == "" {
+				key = status.SenderId
 			}
-			if title == "" {
-				title = config.T("ui.estado")
+			gi, ok := byContact[key]
+			if !ok {
+				name := status.ContactName
+				if name == "" {
+					name = status.SenderId
+				}
+				if name == "" {
+					name = config.T("ui.estado")
+				}
+				byContact[key] = len(groups)
+				groups = append(groups, statusGroup{name: name, key: key})
+				gi = len(groups) - 1
 			}
-			if status.Text != "" {
-				title += ": " + status.Text
-			} else {
-				title += " " + config.T("ui.multimedia")
+			groups[gi].msgs = append(groups[gi].msgs, status)
+		}
+
+		number := 0
+		for _, group := range groups {
+			parent := tview.NewTreeNode(fmt.Sprintf("%s (%d)", group.name, len(group.msgs))).
+				SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
+			parent.SetSelectable(true)
+			for _, status := range group.msgs {
+				number++
+				mediaIndexByChat[statusMediaKey] = append(mediaIndexByChat[statusMediaKey], status.Id)
+				when := time.Unix(int64(status.Timestamp), 0).Format("15:04")
+				title := fmt.Sprintf("[::b][#%d][::-] %s · %s", number, when, statusTitle(status))
+				node := tview.NewTreeNode(title).
+					SetReference(status).
+					SetSelectable(true)
+				node.SetColor(tcell.ColorNames[config.Config.Colors.Text])
+				parent.AddChild(node)
 			}
-			node := tview.NewTreeNode(title).
-				SetReference(status).
-				SetSelectable(true)
-			node.SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
-			statusRoot.AddChild(node)
+			statusRoot.AddChild(parent)
 		}
 	})
+}
+
+// statusTitle returns a short descriptive label for a status, mirroring the
+// attachment markers used for chat media.
+func statusTitle(status messages.Message) string {
+	if status.Kind != messages.MessageKindText && status.Text != "" {
+		return status.Text
+	}
+	switch status.Kind {
+	case messages.MessageKindImage:
+		return "foto"
+	case messages.MessageKindVideo:
+		return "video"
+	case messages.MessageKindAudio:
+		return "audio"
+	case messages.MessageKindDocument:
+		return "archivo"
+	case messages.MessageKindText:
+		if status.Text != "" {
+			return status.Text
+		}
+	}
+	return config.T("ui.multimedia")
 }
 
 // RefreshLanguage re-renders the translated tree headers and re-prints the

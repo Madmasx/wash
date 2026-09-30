@@ -739,6 +739,9 @@ func (sm *SessionManager) downloadCommand(params []string, openFile bool) {
 
 	msg, ok := sm.db.GetMessage(params[0])
 	if !ok {
+		msg, ok = sm.db.GetStatus(params[0])
+	}
+	if !ok {
 		sm.uiHandler.PrintError(errors.New("message not found"))
 		return
 	}
