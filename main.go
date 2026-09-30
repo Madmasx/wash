@@ -20,7 +20,7 @@ import (
 	"wash/messages"
 )
 
-var VERSION string = "v2.1.0"
+var VERSION string = "v2.2.0"
 
 var sndTxt string = ""
 var currentReceiver messages.Chat = messages.Chat{}
