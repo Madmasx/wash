@@ -15,7 +15,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gen2brain/beeep"
-	_ "github.com/mattn/go-sqlite3" // SQLite driver
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store"
@@ -24,6 +23,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
+	_ "modernc.org/sqlite" // pure-Go SQLite driver (no cgo)
 	"wash/config"
 	"wash/qrcode"
 )
@@ -144,7 +144,7 @@ func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
 	if sm.client == nil {
 		store.SetOSInfo("WaSh", [3]uint32{2, 0, 0})
 		dbPath := config.GetSessionFilePath() + ".db"
-		container, err := sqlstore.New(context.Background(), "sqlite3", "file:"+dbPath+"?_foreign_keys=on", waLog.Noop)
+		container, err := sqlstore.New(context.Background(), "sqlite", "file:"+dbPath+"?_pragma=foreign_keys(1)", waLog.Noop)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to database: %v", err)
 		}

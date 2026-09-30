@@ -214,7 +214,10 @@ func GetSessionFilePath() string {
 // app-named path, so the existing link stays valid. It runs once at startup
 // and is a no-op when the new file already exists.
 func MigrateLegacySession() {
-	newBase := GetSessionFilePath() + ".db"
+	migrateLegacySession(GetSessionFilePath() + ".db")
+}
+
+func migrateLegacySession(newBase string) {
 	if _, err := os.Stat(newBase); err == nil {
 		return
 	}

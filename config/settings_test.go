@@ -58,23 +58,27 @@ func TestAbbreviateHomeRoundTrip(t *testing.T) {
 
 // TestMigrateLegacySession checks the pre-v2.2.0 session DB (session.db) is
 // moved to the app-named path once, without clobbering an existing file.
+//
+// It drives migrateLegacySession with explicit temp paths instead of
+// touching the real config dir: adrg/xdg caches XDG_CONFIG_HOME at package
+// init, so t.Setenv can't redirect it, and a test writing to the user's
+// real session storage would destroy their WhatsApp link.
 func TestMigrateLegacySession(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	dir := filepath.Dir(GetSessionFilePath())
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(filepath.Join(dir, "session.db"), []byte("legacy-data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(GetSessionFilePath() + ".db"); err == nil {
+	newBase := filepath.Join(t.TempDir(), "wash.session.db")
+	if _, err := os.Stat(newBase); err == nil {
 		t.Fatal("new session should not exist yet")
 	}
 
-	MigrateLegacySession()
+	if err := os.WriteFile(filepath.Join(filepath.Dir(newBase), "session.db"), []byte("legacy-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(newBase); err == nil {
+		t.Fatal("new session should not exist yet")
+	}
 
-	data, err := os.ReadFile(GetSessionFilePath() + ".db")
+	migrateLegacySession(newBase)
+
+	data, err := os.ReadFile(newBase)
 	if err != nil {
 		t.Fatalf("migrated session missing: %v", err)
 	}
@@ -82,11 +86,11 @@ func TestMigrateLegacySession(t *testing.T) {
 		t.Fatalf("migrated content = %q, want legacy-data", data)
 	}
 
-	if err := os.WriteFile(GetSessionFilePath()+".db", []byte("newer"), 0o644); err != nil {
+	if err := os.WriteFile(newBase, []byte("newer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	MigrateLegacySession()
-	data, err = os.ReadFile(GetSessionFilePath() + ".db")
+	migrateLegacySession(newBase)
+	data, err = os.ReadFile(newBase)
 	if err != nil {
 		t.Fatal(err)
 	}
