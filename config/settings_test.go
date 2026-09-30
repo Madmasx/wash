@@ -55,3 +55,42 @@ func TestAbbreviateHomeRoundTrip(t *testing.T) {
 		t.Errorf("round trip = %q, want %q", expanded, abs)
 	}
 }
+
+// TestMigrateLegacySession checks the pre-v2.2.0 session DB (session.db) is
+// moved to the app-named path once, without clobbering an existing file.
+func TestMigrateLegacySession(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	dir := filepath.Dir(GetSessionFilePath())
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "session.db"), []byte("legacy-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(GetSessionFilePath() + ".db"); err == nil {
+		t.Fatal("new session should not exist yet")
+	}
+
+	MigrateLegacySession()
+
+	data, err := os.ReadFile(GetSessionFilePath() + ".db")
+	if err != nil {
+		t.Fatalf("migrated session missing: %v", err)
+	}
+	if string(data) != "legacy-data" {
+		t.Fatalf("migrated content = %q, want legacy-data", data)
+	}
+
+	if err := os.WriteFile(GetSessionFilePath()+".db", []byte("newer"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	MigrateLegacySession()
+	data, err = os.ReadFile(GetSessionFilePath() + ".db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "newer" {
+		t.Fatalf("second run clobbered session: %q", data)
+	}
+}

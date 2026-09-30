@@ -66,6 +66,7 @@ var mediaIndexByChat map[string][]string
 
 func main() {
 	config.InitConfig()
+	config.MigrateLegacySession()
 	uiHandler = UiHandler{}
 	sessionManager = &messages.SessionManager{}
 	sessionManager.Init(uiHandler)

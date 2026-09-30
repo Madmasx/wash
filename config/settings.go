@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/adrg/xdg"
@@ -202,10 +203,31 @@ func Save() error {
 }
 
 func GetSessionFilePath() string {
-	if sessionFilePath, err := xdg.ConfigFile("wash/session"); err == nil {
+	if sessionFilePath, err := xdg.ConfigFile("wash/wash.session"); err == nil {
 		return sessionFilePath
 	}
 	return GetHomeDir() + ".wash.session"
+}
+
+// MigrateLegacySession renames the pre-v2.2.0 WhatsApp session database
+// (session.db, without the application name in its filename) to the
+// app-named path, so the existing link stays valid. It runs once at startup
+// and is a no-op when the new file already exists.
+func MigrateLegacySession() {
+	newBase := GetSessionFilePath() + ".db"
+	if _, err := os.Stat(newBase); err == nil {
+		return
+	}
+	dir := filepath.Dir(newBase)
+	for _, ext := range []string{".db", ".db-wal", ".db-shm"} {
+		data, err := os.ReadFile(filepath.Join(dir, "session"+ext))
+		if err != nil {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(dir, "wash.session"+ext), data, 0o644); err != nil {
+			return
+		}
+	}
 }
 
 // gets the OS home dir with a path separator at the end
