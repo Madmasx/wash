@@ -58,6 +58,7 @@ type SessionManager struct {
 	lastSent        time.Time
 	started         bool
 	eventHandler    *eventHandler
+	historyFetches  map[string]int
 }
 
 // Init initializes the SessionManager.
@@ -72,6 +73,7 @@ func (sm *SessionManager) Init(handler UiMessageHandler) {
 	sm.ContactChannel = make(chan Contact, 10)
 	sm.TextChannel = make(chan *waProto.Message, 10)
 	sm.eventHandler = &eventHandler{sm: sm}
+	sm.historyFetches = make(map[string]int)
 }
 
 // StartManager starts the receiver and message handling goroutine.
@@ -138,6 +140,55 @@ func (sm *SessionManager) runManager() error {
 func (sm *SessionManager) setCurrentReceiver(id string) {
 	sm.currentReceiver = id
 	sm.uiHandler.NewScreen(sm.getMessages(id))
+	sm.fetchOlderHistory(id)
+}
+
+// fetchOlderHistory asks the user's primary device for older messages of the
+// opened chat, using the same on-demand history sync WhatsApp Web triggers
+// when scrolling up. The response arrives as an events.HistorySync and is
+// stored by handleHistorySync, which also refreshes the open conversation.
+func (sm *SessionManager) fetchOlderHistory(chatID string) {
+	if sm.client == nil || !sm.client.IsConnected() || sm.historyFetches[chatID] >= historyFetchLimit {
+		return
+	}
+
+	msgs := sm.db.GetMessages(chatID)
+	if len(msgs) == 0 || len(msgs) >= historyFetchCount {
+		// nothing to build a request on, or the chat is already well stocked
+		return
+	}
+
+	chatJID, err := types.ParseJID(chatID)
+	if err != nil || chatJID.IsEmpty() {
+		return
+	}
+	if chatJID.Server == types.BroadcastServer {
+		return
+	}
+
+	earliest := msgs[0]
+	senderJID, err := types.ParseJID(earliest.SenderId)
+	if err != nil || senderJID.IsEmpty() {
+		senderJID = chatJID
+	}
+
+	msgInfo := &types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     chatJID,
+			Sender:   senderJID,
+			IsFromMe: earliest.FromMe,
+		},
+		ID:        types.MessageID(earliest.Id),
+		Timestamp: time.Unix(int64(earliest.Timestamp), 0),
+	}
+
+	req := sm.client.BuildHistorySyncRequest(msgInfo, historyFetchCount)
+	if _, err := sm.client.SendPeerMessage(context.Background(), req); err != nil {
+		sm.uiHandler.PrintError(fmt.Errorf("failed to request older messages: %v", err))
+		return
+	}
+	sm.historyFetches[chatID]++
+	sm.uiHandler.PrintText("Requesting older messages…")
 }
 
 func (sm *SessionManager) getConnection() (*whatsmeow.Client, error) {
@@ -234,6 +285,14 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 // groups before giving up. A freshly-linked device takes a few seconds to
 // finish its initial sync, so a single attempt often ends up empty.
 const recentChatRetries = 6
+
+// historyFetchCount is how many older messages each on-demand history request
+// asks for (whatsmeow's recommended batch size is 50).
+const historyFetchCount = 50
+
+// historyFetchLimit caps on-demand history requests per chat, so repeatedly
+// opening a conversation can't flood the primary device.
+const historyFetchLimit = 3
 
 func (sm *SessionManager) loadRecentChats() {
 	if sm.client == nil || !sm.client.IsConnected() {
