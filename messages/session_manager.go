@@ -478,7 +478,7 @@ func (sm *SessionManager) logout() error {
 func (sm *SessionManager) execCommand(command Command) {
 	switch command.Name {
 	default:
-		sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]" + config.T("session.unknown_cmd") + "[-]" + command.Name)
+		sm.uiHandler.PrintText("[" + config.NormalizeColorName(config.Config.Colors.Negative) + "]" + config.T("session.unknown_cmd") + "[-]" + command.Name)
 	case "backlog":
 		sm.loadBacklog()
 	case "update":
@@ -979,7 +979,7 @@ func (sm *SessionManager) currentGroupJID() (types.JID, error) {
 }
 
 func (sm *SessionManager) printCommandUsage(command, usage string) {
-	sm.uiHandler.PrintText("[" + config.Config.Colors.Negative + "]Usage:[-] " + command + " " + usage)
+	sm.uiHandler.PrintText("[" + config.NormalizeColorName(config.Config.Colors.Negative) + "]Usage:[-] " + command + " " + usage)
 }
 
 func checkParam(arr []string, length int) bool {

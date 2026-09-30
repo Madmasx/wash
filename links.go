@@ -249,7 +249,7 @@ var linkOpen = func(url string) {
 // configured link color, making links visually distinct from the rest of the
 // message.
 func colorizeLinks(text string) string {
-	linkColor := config.Config.Colors.LinkColor
+	linkColor := config.NormalizeColorName(config.Config.Colors.LinkColor)
 	if linkColor == "" {
 		return text
 	}

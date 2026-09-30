@@ -84,19 +84,19 @@ func main() {
 	gridLayout.SetRows(1, 0, 1)
 	gridLayout.SetColumns(sideBarWidth, 0, sideBarWidth)
 	gridLayout.SetBorders(true)
-	gridLayout.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	gridLayout.SetBordersColor(tcell.ColorNames[config.Config.Colors.Borders])
+	gridLayout.SetBackgroundColor(config.Color(config.Config.Colors.Background))
+	gridLayout.SetBordersColor(config.Color(config.Config.Colors.Borders))
 
 	cmdPrefix := config.Config.General.CmdPrefix
 	topBar = tview.NewTextView()
 	topBar.SetDynamicColors(true)
 	topBar.SetScrollable(false)
 	topBar.SetText("[::b] WaSh " + VERSION + "  [-::d]Type " + cmdPrefix + "help or press " + config.Config.Keymap.CommandHelp + " for help")
-	topBar.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
+	topBar.SetBackgroundColor(config.Color(config.Config.Colors.Background))
 
 	infoBar = tview.NewTextView()
 	infoBar.SetDynamicColors(true)
-	infoBar.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
+	infoBar.SetBackgroundColor(config.Color(config.Config.Colors.Background))
 	UpdateStatusBar(messages.SessionStatus{})
 
 	textView = tview.NewTextView().
@@ -106,16 +106,16 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
-	textView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	textView.SetTextColor(tcell.ColorNames[config.Config.Colors.Text])
+	textView.SetBackgroundColor(config.Color(config.Config.Colors.Background))
+	textView.SetTextColor(config.Color(config.Config.Colors.Text))
 	textView.SetMouseCapture(linkClickCapture)
 
 	renderHelpOverlay(PrintHelp)
 
 	textInput = tview.NewInputField()
-	textInput.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
-	textInput.SetFieldBackgroundColor(tcell.ColorNames[config.Config.Colors.InputBackground])
-	textInput.SetFieldTextColor(tcell.ColorNames[config.Config.Colors.InputText])
+	textInput.SetBackgroundColor(config.Color(config.Config.Colors.Background))
+	textInput.SetFieldBackgroundColor(config.Color(config.Config.Colors.InputBackground))
+	textInput.SetFieldTextColor(config.Color(config.Config.Colors.InputText))
 	textInput.SetChangedFunc(func(change string) {
 		sndTxt = change
 	})
@@ -175,16 +175,16 @@ func main() {
 // creates the TreeView for chats, statuses and contacts
 func MakeTree() *tview.TreeView {
 	mainRoot := tview.NewTreeNode("WaSh").
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Color(config.Config.Colors.ListHeader))
 
 	chatRoot = tview.NewTreeNode(config.T("ui.chats")).
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Color(config.Config.Colors.ListHeader))
 	groupRoot = tview.NewTreeNode(config.T("ui.groups")).
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Color(config.Config.Colors.ListHeader))
 	statusRoot = tview.NewTreeNode(config.T("ui.statuses")).
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Color(config.Config.Colors.ListHeader))
 	contactRoot = tview.NewTreeNode(config.T("ui.contacts")).
-		SetColor(tcell.ColorNames[config.Config.Colors.ListHeader])
+		SetColor(config.Color(config.Config.Colors.ListHeader))
 
 	mainRoot.AddChild(chatRoot)
 	mainRoot.AddChild(groupRoot)
@@ -194,7 +194,7 @@ func MakeTree() *tview.TreeView {
 	treeView = tview.NewTreeView().
 		SetRoot(mainRoot).
 		SetCurrentNode(chatRoot)
-	treeView.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
+	treeView.SetBackgroundColor(config.Color(config.Config.Colors.Background))
 
 	// If a chat, status or contact was selected, open it on Enter, or toggle expansion.
 	treeView.SetSelectedFunc(func(node *tview.TreeNode) {
@@ -922,11 +922,17 @@ func PrintText(txt string) {
 }
 
 // prints an error to the TextView
+// colorTag wraps a configured color name in a tview color tag, normalizing
+// aliases like "cyan" so tview's own tcell.GetColor lookup resolves it.
+func colorTag(name string) string {
+	return "[" + config.NormalizeColorName(name) + "]"
+}
+
 func PrintError(err error) {
 	if err == nil {
 		return
 	}
-	tviewLine("["+config.Config.Colors.Negative+"]", err.Error(), "[-]")
+	tviewLine(colorTag(config.Config.Colors.Negative), err.Error(), "[-]")
 }
 
 // prints an error to the TextView
@@ -934,30 +940,30 @@ func PrintErrorMsg(text string, err error) {
 	if err == nil {
 		return
 	}
-	tviewLine("["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
+	tviewLine(colorTag(config.Config.Colors.Negative), text, err.Error(), "[-]")
 }
 
 // updates the status bar
 func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	out := " "
 	if statusInfo.Connected {
-		out += "[" + config.Config.Colors.Positive + "]" + config.T("ui.online") + "[-]"
+		out += colorTag(config.Config.Colors.Positive) + config.T("ui.online") + "[-]"
 	} else {
-		out += "[" + config.Config.Colors.Negative + "]" + config.T("ui.offline") + "[-]"
+		out += colorTag(config.Config.Colors.Negative) + config.T("ui.offline") + "[-]"
 	}
 	out += " "
 	out += "[::d] ("
 	out += fmt.Sprint(statusInfo.BatteryCharge)
 	out += "%"
 	if statusInfo.BatteryLoading {
-		out += " [" + config.Config.Colors.Positive + "]L[-]"
+		out += " " + colorTag(config.Config.Colors.Positive) + "L[-]"
 	} else {
-		out += " [" + config.Config.Colors.Negative + "]l[-]"
+		out += " " + colorTag(config.Config.Colors.Negative) + "l[-]"
 	}
 	if statusInfo.BatteryPowersave {
-		out += " [" + config.Config.Colors.Negative + "]S[-]"
+		out += " " + colorTag(config.Config.Colors.Negative) + "S[-]"
 	} else {
-		out += " [" + config.Config.Colors.Positive + "]s[-]"
+		out += " " + colorTag(config.Config.Colors.Positive) + "s[-]"
 	}
 	out += ")[::-] "
 	out += statusInfo.LastSeen
@@ -1029,12 +1035,12 @@ func resolveMediaNumber(chatID string, n int) (string, bool) {
 // create a formatted string with regions based on message ID from a text message
 // TODO: optimize, use Sprintf etc
 func getTextMessageString(msg *messages.Message, tag string) string {
-	colorMe := config.Config.Colors.ChatMe
-	colorContact := config.Config.Colors.ChatContact
+	colorMe := config.NormalizeColorName(config.Config.Colors.ChatMe)
+	colorContact := config.NormalizeColorName(config.Config.Colors.ChatContact)
 	out := ""
 	text := colorizeLinks(tview.Escape(msg.Text))
 	if msg.Forwarded {
-		text = "[" + config.Config.Colors.ForwardedText + "]" + text + "[-]"
+		text = colorTag(config.Config.Colors.ForwardedText) + text + "[-]"
 	}
 	tim := time.Unix(int64(msg.Timestamp), 0)
 	time := tim.Format("02-01-06 15:04:05")
@@ -1093,7 +1099,7 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				name = strings.TrimSuffix(strings.TrimSuffix(element.Id, messages.GROUPSUFFIX), messages.CONTACTSUFFIX)
 			}
 			if element.Unread > 0 {
-				name += " ([" + config.Config.Colors.UnreadCount + "]" + fmt.Sprint(element.Unread) + "[-])"
+				name += " (" + colorTag(config.Config.Colors.UnreadCount) + fmt.Sprint(element.Unread) + "[-])"
 				//tim := time.Unix(element.LastMessage, 0)
 				//sin := time.Since(tim)
 				//since := fmt.Sprintf("%s", sin)
@@ -1104,7 +1110,7 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 				SetReference(element).
 				SetSelectable(true)
 			if element.IsGroup {
-				node.SetColor(tcell.ColorNames[config.Config.Colors.ListGroup])
+				node.SetColor(config.Color(config.Config.Colors.ListGroup))
 				// store new currentReceiver, else the selection on the left goes off
 				if element.Id == oldId {
 					currentReceiver = element
@@ -1114,7 +1120,7 @@ func (u UiHandler) SetChats(ids []messages.Chat) {
 					treeView.SetCurrentNode(node)
 				}
 			} else {
-				node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
+				node.SetColor(config.Color(config.Config.Colors.ListContact))
 				// store new currentReceiver, else the selection on the left goes off
 				if element.Id == oldId {
 					currentReceiver = element
@@ -1143,7 +1149,7 @@ func (u UiHandler) SetContacts(contacts []messages.Contact) {
 			node := tview.NewTreeNode(name).
 				SetReference(contact).
 				SetSelectable(true)
-			node.SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
+			node.SetColor(config.Color(config.Config.Colors.ListContact))
 			contactRoot.AddChild(node)
 		}
 	})
@@ -1185,7 +1191,7 @@ func (u UiHandler) SetStatuses(statuses []messages.Message) {
 		number := 0
 		for _, group := range groups {
 			parent := tview.NewTreeNode(fmt.Sprintf("%s (%d)", group.name, len(group.msgs))).
-				SetColor(tcell.ColorNames[config.Config.Colors.ListContact])
+				SetColor(config.Color(config.Config.Colors.ListContact))
 			parent.SetSelectable(true)
 			for _, status := range group.msgs {
 				number++
@@ -1195,7 +1201,7 @@ func (u UiHandler) SetStatuses(statuses []messages.Message) {
 				node := tview.NewTreeNode(title).
 					SetReference(status).
 					SetSelectable(true)
-				node.SetColor(tcell.ColorNames[config.Config.Colors.Text])
+				node.SetColor(config.Color(config.Config.Colors.Text))
 				parent.AddChild(node)
 			}
 			statusRoot.AddChild(parent)
