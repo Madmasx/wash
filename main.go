@@ -1,14 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +37,7 @@ var groupRoot *tview.TreeNode
 var statusRoot *tview.TreeNode
 var contactRoot *tview.TreeNode
 var app *tview.Application
+var pages *tview.Pages
 
 // contactList keeps the loaded contacts for @mention autocomplete and for
 // resolving @Name into a direct conversation. It is refreshed by SetContacts.
@@ -49,6 +49,16 @@ var keyBindings *cbind.Configuration
 
 var uiHandler messages.UiMessageHandler
 
+// lastQRText keeps the rendered QR block currently shown in the chat, so
+// SetQRCode can replace it in place on every refresh instead of stacking
+// copies. It is only touched from the UI (QueueUpdateDraw) goroutine.
+var lastQRText string
+
+// mediaIndexByChat maps, per chat, the ordered ids of the media messages shown
+// in that chat's view, so /show N can resolve a per-chat image number (1..K,
+// reset per chat) to its message id. It is only touched from the UI goroutine.
+var mediaIndexByChat map[string][]string
+
 func main() {
 	config.InitConfig()
 	uiHandler = UiHandler{}
@@ -56,6 +66,7 @@ func main() {
 	sessionManager.Init(uiHandler)
 
 	app = tview.NewApplication()
+	mediaIndexByChat = make(map[string][]string)
 
 	sideBarWidth := config.Config.Ui.ChatSidebarWidth
 	gridLayout := tview.NewGrid()
@@ -137,7 +148,10 @@ func main() {
 	gridLayout.AddItem(textView, 1, 1, 1, 3, 0, 0, false)
 	gridLayout.AddItem(textInput, 2, 1, 1, 3, 0, 0, false)
 
-	app.SetRoot(gridLayout, true)
+	pages = tview.NewPages()
+	pages.AddPage("main", gridLayout, true, true)
+
+	app.SetRoot(pages, true)
 	app.EnableMouse(true)
 	app.SetFocus(textInput)
 	if err := sessionManager.StartManager(); err != nil {
@@ -560,13 +574,14 @@ func PrintHelp() {
 	tviewLine("[::b] Up/Down[::-] = " + config.T("help.select_msg"))
 	tviewLine("[::b]", config.Config.Keymap.MessageDownload, "[::-] = "+config.T("help.download"))
 	tviewLine("[::b]", config.Config.Keymap.MessageOpen, "[::-] = "+config.T("help.open"))
-	tviewLine("[::b]", config.Config.Keymap.MessageShow, "[::-] = "+config.T("help.show"), config.Config.General.ShowCommand)
+	tviewLine("[::b]", config.Config.Keymap.MessageShow, "[::-] = "+config.T("help.show"))
+	tviewLine("[::d] " + config.T("help.show_index") + "[::-]")
 	tviewLine("[::b]", config.Config.Keymap.MessageUrl, "[::-] = "+config.T("help.url"))
 	tviewLine("[::d] " + config.T("help.click_link"))
 	tviewLine("[::b]", config.Config.Keymap.MessageRevoke, "[::-] = "+config.T("help.revoke"))
 	tviewLine("[::b]", config.Config.Keymap.MessageInfo, "[::-] = "+config.T("help.info"))
 	tviewLine("")
-	tviewLine(config.T("help.config_file"), config.GetConfigFilePath())
+	tviewLine(config.T("help.config_file"), config.AbbreviateHome(config.GetConfigFilePath()))
 	tviewLine("")
 	tviewLine(fmt.Sprintf(config.T("help.type_commands"), cmdPrefix+"commands"))
 	tviewLine("")
@@ -592,6 +607,7 @@ func PrintCommands() {
 	tviewLine("[::b] " + cmdPrefix + "sendimage[::-] /path/to/file  = " + config.T("cmds.sendimage"))
 	tviewLine("[::b] " + cmdPrefix + "sendvideo[::-] /path/to/file  = " + config.T("cmds.sendvideo"))
 	tviewLine("[::b] " + cmdPrefix + "sendaudio[::-] /path/to/file  = " + config.T("cmds.sendaudio"))
+	tviewLine("[::b] " + cmdPrefix + "show[::-] [N|message-id[]  = " + config.T("cmds.show"))
 	tviewLine("")
 	tviewLine("[-::-]" + config.T("cmds.groups") + "[-::-]")
 	tviewLine("[::b] " + cmdPrefix + "leave[::-]  = " + config.T("cmds.leave"))
@@ -663,6 +679,19 @@ func EnterCommand(key tcell.Key) {
 			cmdParts := strings.Split(cmd, " ")
 			cmd = cmdParts[0]
 			params = cmdParts[1:]
+		}
+		// /show N: resolve the per-chat attachment number to its message id, so
+		// attachments get opened by the number printed next to them ([#N])
+		// without highlighting.
+		if cmd == "show" && len(params) == 1 {
+			if n, err := strconv.Atoi(params[0]); err == nil {
+				if id, ok := resolveMediaNumber(currentReceiver.Id, n); ok {
+					params[0] = id
+				} else {
+					PrintError(fmt.Errorf(config.T("show.no_index"), n))
+					return
+				}
+			}
 		}
 		sessionManager.CommandChannel <- messages.Command{cmd, params}
 		textInput.SetText("")
@@ -873,32 +902,6 @@ func PrintErrorMsg(text string, err error) {
 	tviewLine("["+config.Config.Colors.Negative+"]", text, err.Error(), "[-]")
 }
 
-// prints an image attachment to the TextView (by message id)
-func PrintImage(path string) {
-	var err error
-	cmdParts := strings.Split(config.Config.General.ShowCommand, " ")
-	cmdParts = append(cmdParts, path)
-	var cmd *exec.Cmd
-	size := len(cmdParts)
-	if size > 1 {
-		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
-	} else if size > 0 {
-		cmd = exec.Command(cmdParts[0])
-	}
-	var stdout io.ReadCloser
-	if stdout, err = cmd.StdoutPipe(); err == nil {
-		if err = cmd.Start(); err == nil {
-			reader := bufio.NewReader(stdout)
-			// ANSI image output has an unknown line count: log a sentinel so
-			// the link index stops being authoritative below this point.
-			linkLogAppend("\x00[image]")
-			io.Copy(tview.ANSIWriter(textView), reader)
-			return
-		}
-	}
-	PrintError(err)
-}
-
 // updates the status bar
 func UpdateStatusBar(statusInfo messages.SessionStatus) {
 	out := " "
@@ -940,16 +943,57 @@ func SetDisplayedChat(wid messages.Chat) {
 // get a string representation of all messages for chat
 func getMessagesString(msgs []messages.Message) string {
 	out := ""
-	for _, msg := range msgs {
-		out += getTextMessageString(&msg)
+	for i := range msgs {
+		out += getTextMessageString(&msgs[i], mediaTagFor(&msgs[i]))
 		out += "\n"
 	}
 	return out
 }
 
+// mediaTagFor returns the per-chat attachment number marker ("[#N] ") for a
+// media message, assigning it the next number in its chat. Text messages get
+// no marker. Every attachment in the loaded chat gets a number; /show N opens
+// the N-th one with the system viewer.
+func mediaTagFor(msg *messages.Message) string {
+	switch msg.Kind {
+	case messages.MessageKindImage,
+		messages.MessageKindVideo,
+		messages.MessageKindAudio,
+		messages.MessageKindDocument:
+	default:
+		return ""
+	}
+	n := assignMediaNumber(msg.ChatId, msg.Id)
+	return "[::b][#" + strconv.Itoa(n) + "][::-] "
+}
+
+// assignMediaNumber records msgID as the next attachment of the chat and
+// returns its 1-based number. The numbering restarts per chat and per screen
+// build.
+func assignMediaNumber(chatID, msgID string) int {
+	mediaIndexByChat[chatID] = append(mediaIndexByChat[chatID], msgID)
+	return len(mediaIndexByChat[chatID])
+}
+
+// resetChatMediaIndex starts the attachment numbering of a chat again at #1,
+// which happens whenever its screen is rebuilt.
+func resetChatMediaIndex(chatID string) {
+	mediaIndexByChat[chatID] = nil
+}
+
+// resolveMediaNumber returns the message id of the N-th attachment shown in a
+// chat.
+func resolveMediaNumber(chatID string, n int) (string, bool) {
+	idx := mediaIndexByChat[chatID]
+	if n < 1 || n > len(idx) {
+		return "", false
+	}
+	return idx[n-1], true
+}
+
 // create a formatted string with regions based on message ID from a text message
 // TODO: optimize, use Sprintf etc
-func getTextMessageString(msg *messages.Message) string {
+func getTextMessageString(msg *messages.Message, tag string) string {
 	colorMe := config.Config.Colors.ChatMe
 	colorContact := config.Config.Colors.ChatContact
 	out := ""
@@ -963,9 +1007,9 @@ func getTextMessageString(msg *messages.Message) string {
 	out += msg.Id
 	out += "\"]"
 	if msg.FromMe { //msg from me
-		out += "[-::d](" + time + ") [" + colorMe + "::b]" + config.T("ui.me") + " [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorMe + "::b]" + config.T("ui.me") + " [-::-]" + tag + text
 	} else { // message from others
-		out += "[-::d](" + time + ") [" + colorContact + "::b]" + msg.ContactShort + ": [-::-]" + text
+		out += "[-::d](" + time + ") [" + colorContact + "::b]" + msg.ContactShort + ": [-::-]" + tag + text
 	}
 	out += "[\"\"]"
 	return out
@@ -978,7 +1022,7 @@ func (u UiHandler) NewMessage(msg messages.Message) {
 	//on the ui thread anyway. But QueueUpdate blocks...?
 	go app.QueueUpdateDraw(func() {
 		curRegions = append(curRegions, msg)
-		PrintText(getTextMessageString(&msg))
+		PrintText(getTextMessageString(&msg, mediaTagFor(&msg)))
 	})
 }
 
@@ -986,6 +1030,7 @@ func (u UiHandler) NewScreen(msgs []messages.Message) {
 	go app.QueueUpdateDraw(func() {
 		textView.Clear()
 		linkLogReset()
+		resetChatMediaIndex(currentReceiver.Id)
 		screen := getMessagesString(msgs)
 		textView.SetText(screen)
 		linkLogAppendText(screen)
@@ -1115,12 +1160,6 @@ func (u UiHandler) PrintText(msg string) {
 	PrintText(msg)
 }
 
-func (u UiHandler) PrintFile(path string) {
-	go app.QueueUpdateDraw(func() {
-		PrintImage(path)
-	})
-}
-
 func (u UiHandler) OpenFile(path string) {
 	open.Run(path)
 }
@@ -1131,6 +1170,46 @@ func (u UiHandler) SetStatus(status messages.SessionStatus) {
 	})
 }
 
-func (u UiHandler) GetWriter() io.Writer {
-	return textView
+// SetQRCode shows the pairing QR code as a message at the end of the chat
+// history, so it never covers the other text. Every refresh replaces the
+// previous QR block in place (WhatsApp rotates the code roughly every 20s);
+// an empty string just removes it once pairing finishes.
+func (u UiHandler) SetQRCode(ansi string) {
+	go app.QueueUpdateDraw(func() {
+		if ansi != "" {
+			var buf strings.Builder
+			if _, err := tview.ANSIWriter(&buf).Write([]byte(ansi)); err != nil {
+				PrintError(err)
+				return
+			}
+			ansi = buf.String()
+		}
+		newText, newLast := applyQRText(textView.GetText(false), lastQRText, ansi)
+		lastQRText = newLast
+		textView.SetText(newText)
+		textView.ScrollToEnd()
+	})
+}
+
+// applyQRText removes the previous QR block from the chat body (when there is
+// one) and appends the new one below it. With an empty newQR it only removes
+// the block. It returns the new body and the text to remember as the current
+// QR block.
+func applyQRText(body, lastQR, newQR string) (newBody, newLast string) {
+	if lastQR != "" {
+		if idx := strings.LastIndex(body, lastQR); idx >= 0 {
+			body = body[:idx] + body[idx+len(lastQR):]
+			// drop the separator newline we added before the block
+			if idx > 0 && body[idx-1] == '\n' {
+				body = body[:idx-1] + body[idx:]
+			}
+		}
+	}
+	if newQR == "" {
+		return body, ""
+	}
+	if body == "" {
+		return newQR, newQR
+	}
+	return body + "\n" + newQR, newQR
 }

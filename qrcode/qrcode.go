@@ -39,6 +39,7 @@ import (
 	"github.com/skip2/go-qrcode"
 	"image/png"
 	"io"
+	"strings"
 )
 
 type consoleColor string
@@ -138,36 +139,68 @@ func New() *qrcodeTerminal {
 	return New2(front, back, level)
 }
 
+const (
+	sgrFGBlack = "\033[38;5;0m"
+	sgrFGWhite = "\033[38;5;255m"
+	sgrBGBlack = "\033[48;5;0m"
+	sgrBGWhite = "\033[48;5;255m"
+	sgrReset   = "\033[0m"
+)
+
 func (v *qrcodeTerminal) getQRCodeString(data [][]bool) (result *QRCodeString) {
-	str := ""
-	lr := len(data)
-	if lr == 0 {
+	if len(data) == 0 || len(data[0]) == 0 {
 		obj := QRCodeString("")
 		return &obj
 	}
+	lr := len(data)
 	lc := len(data[0])
 
+	rows := (lr - 6 + 1) / 2
+	cols := lc - 6
+	var b strings.Builder
+	b.Grow(cols*rows + rows*40)
+
 	for ir := 3; ir < lr-3; ir += 2 {
+		lastFG := byte('x') // sentinel: force first cell to emit its colors
+		lastBG := byte('x')
 		for ic := 3; ic < lc-3; ic++ {
 			top := data[ir][ic]
-			bottom := false
-			if ir+1 < lr-3 {
-				bottom = data[ir+1][ic]
+			bottom := ir+1 < lr-3 && data[ir+1][ic]
+
+			var wantFG, wantBG byte // 'k'=black, 'w'=white
+			var char rune
+			switch {
+			case top && bottom: // solid black
+				wantFG, wantBG, char = 'k', 'k', '█'
+			case !top && !bottom: // solid white
+				wantFG, wantBG, char = 'w', 'w', ' '
+			case top: // upper half black
+				wantFG, wantBG, char = 'k', 'w', '▀'
+			default: // lower half black
+				wantFG, wantBG, char = 'k', 'w', '▄'
 			}
 
-			if top && bottom {
-				str += "\033[48;2;0;0;0m\033[38;2;0;0;0m█\033[0m"
-			} else if !top && !bottom {
-				str += "\033[48;2;255;255;255m\033[38;2;255;255;255m \033[0m"
-			} else if top && !bottom {
-				str += "\033[48;2;255;255;255m\033[38;2;0;0;0m▀\033[0m"
-			} else {
-				str += "\033[48;2;255;255;255m\033[38;2;0;0;0m▄\033[0m"
+			if wantBG != lastBG {
+				if wantBG == 'w' {
+					b.WriteString(sgrBGWhite)
+				} else {
+					b.WriteString(sgrBGBlack)
+				}
+				lastBG = wantBG
 			}
+			if wantFG != lastFG {
+				if wantFG == 'w' {
+					b.WriteString(sgrFGWhite)
+				} else {
+					b.WriteString(sgrFGBlack)
+				}
+				lastFG = wantFG
+			}
+			b.WriteRune(char)
 		}
-		str += fmt.Sprintln()
+		b.WriteString(sgrReset + "\n")
 	}
-	obj := QRCodeString(str)
+	obj := QRCodeString(b.String())
 	result = &obj
 	return
 }

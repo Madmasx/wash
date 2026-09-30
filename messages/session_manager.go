@@ -16,7 +16,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gen2brain/beeep"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
-	"github.com/rivo/tview"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store"
@@ -217,10 +216,9 @@ func (sm *SessionManager) loginWithQRCode(client *whatsmeow.Client) error {
 	for evt := range qrChan {
 		switch evt.Event {
 		case "code":
-			terminal := qrcode.New()
-			terminal.SetOutput(tview.ANSIWriter(sm.uiHandler.GetWriter()))
-			terminal.Get(evt.Code).Print()
+			sm.uiHandler.SetQRCode(string(*qrcode.New().Get(evt.Code)))
 		case "success":
+			sm.uiHandler.SetQRCode("")
 			sm.uiHandler.PrintText("Successfully logged in!")
 			sm.StatusChannel <- StatusMsg{true, nil}
 			go sm.loadRecentChats()
@@ -382,11 +380,9 @@ func (sm *SessionManager) execCommand(command Command) {
 			sm.printCommandUsage("info", "[message-id[]")
 		}
 	case "download":
-		sm.downloadCommand(command.Params, false, false)
-	case "open":
-		sm.downloadCommand(command.Params, true, false)
-	case "show":
-		sm.downloadCommand(command.Params, true, true)
+		sm.downloadCommand(command.Params, false)
+	case "open", "show":
+		sm.downloadCommand(command.Params, true)
 	case "url":
 		sm.openMessageURL(command.Params)
 	case "upload":
@@ -595,13 +591,11 @@ func (sm *SessionManager) markCurrentChatRead() {
 	sm.uiHandler.SetChats(sm.db.GetChatIds())
 }
 
-func (sm *SessionManager) downloadCommand(params []string, preview, show bool) {
+func (sm *SessionManager) downloadCommand(params []string, openFile bool) {
 	if !checkParam(params, 1) {
 		name := "download"
-		if preview && !show {
+		if openFile {
 			name = "open"
-		} else if show {
-			name = "show"
 		}
 		sm.printCommandUsage(name, "[message-id[]")
 		return
@@ -612,25 +606,17 @@ func (sm *SessionManager) downloadCommand(params []string, preview, show bool) {
 		sm.uiHandler.PrintError(errors.New("message not found"))
 		return
 	}
-	if show && msg.Kind != MessageKindImage {
-		sm.uiHandler.PrintError(errors.New("show only works for image messages"))
-		return
-	}
 
-	path, err := sm.downloadMessage(msg, preview)
+	path, err := sm.downloadMessage(msg, openFile)
 	if err != nil {
 		sm.uiHandler.PrintError(err)
 		return
 	}
-	if show {
-		sm.uiHandler.PrintFile(path)
-		return
-	}
-	if preview {
+	if openFile {
 		sm.uiHandler.OpenFile(path)
 		return
 	}
-	sm.uiHandler.PrintText("[::d] -> " + path + "[::-]")
+	sm.uiHandler.PrintText("[::d] -> " + config.AbbreviateHome(path) + "[::-]")
 }
 
 func (sm *SessionManager) openMessageURL(params []string) {
@@ -1267,6 +1253,17 @@ func (eh *eventHandler) getContactShort(jid types.JID) string {
 	return eh.sm.db.GetIdShort(jid.String())
 }
 
+// mediaDirPath returns the directory where attachment downloads land: the
+// configured base (DownloadPath, or PreviewPath for opens/shows) plus an
+// app-named subfolder, so files never sit loose in the base dir.
+func mediaDirPath(preview bool) string {
+	base := config.Config.General.DownloadPath
+	if preview {
+		base = config.Config.General.PreviewPath
+	}
+	return filepath.Join(base, config.AppFolder)
+}
+
 func (sm *SessionManager) downloadMessage(msg Message, preview bool) (string, error) {
 	if sm.client == nil || !sm.client.IsConnected() {
 		return "", errors.New("not connected to WhatsApp")
@@ -1277,10 +1274,7 @@ func (sm *SessionManager) downloadMessage(msg Message, preview bool) (string, er
 		return "", err
 	}
 
-	baseDir := config.Config.General.DownloadPath
-	if preview {
-		baseDir = config.Config.General.PreviewPath
-	}
+	baseDir := mediaDirPath(preview)
 	if err = os.MkdirAll(baseDir, 0o755); err != nil {
 		return "", err
 	}

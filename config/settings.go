@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"strings"
 
 	"github.com/adrg/xdg"
 	"gopkg.in/ini.v1"
 )
+
+// AppFolder is the subdirectory created inside DownloadPath/PreviewPath where
+// attachments land, so downloads do not get scattered loose in the base dir.
+const AppFolder = "wash"
 
 var configFilePath string
 var cfg *ini.File
@@ -23,7 +28,6 @@ type General struct {
 	DownloadPath        string
 	PreviewPath         string
 	CmdPrefix           string
-	ShowCommand         string
 	EnableNotifications bool
 	UseTerminalBell     bool
 	NotificationTimeout int64
@@ -78,7 +82,6 @@ var Config = IniFile{
 		DownloadPath:        GetHomeDir() + "Downloads",
 		PreviewPath:         GetHomeDir() + "Downloads",
 		CmdPrefix:           "/",
-		ShowCommand:         "jp2a --color",
 		EnableNotifications: false,
 		UseTerminalBell:     false,
 		NotificationTimeout: 60,
@@ -167,6 +170,20 @@ func InitConfig() {
 
 func GetConfigFilePath() string {
 	return configFilePath
+}
+
+// AbbreviateHome rewrites a path under the user's home directory to use ~.
+// It is only for display: the UI prints these paths, and the splash screen is
+// the first thing a screenshot of WaSh shows, so spelling out the account name
+// leaks it into anything the user shares. Paths outside the home directory
+// (a custom XDG_CONFIG_HOME, for instance) are returned untouched.
+func AbbreviateHome(path string) string {
+	// GetHomeDir carries a trailing separator, but do not rely on it.
+	home := strings.TrimSuffix(GetHomeDir(), string(os.PathSeparator))
+	if home == "" || home == path || !strings.HasPrefix(path, home+string(os.PathSeparator)) {
+		return path
+	}
+	return "~" + path[len(home):]
 }
 
 // Save persists the current config to the ini file (e.g. after changing

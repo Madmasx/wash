@@ -28,7 +28,8 @@ var translations = map[string]map[string]string{
 		"help.select_msg":    "seleccionar mensaje",
 		"help.download":      "Descargar adjunto",
 		"help.open":          "Descargar y abrir adjunto",
-		"help.show":          "Descargar y mostrar imagen usando",
+		"help.show":          "Descargar y abrir adjunto con el visor del sistema",
+		"help.show_index":    "los adjuntos se numeran [#N] por chat; /show N abre el #N",
 		"help.url":           "Buscar URL en el mensaje y abrirla",
 		"help.click_link":    "Haz clic en un enlace para abrirlo en tu navegador",
 		"help.revoke":        "Revocar mensaje",
@@ -52,6 +53,7 @@ var translations = map[string]map[string]string{
 		"cmds.sendimage":   "Enviar mensaje de imagen",
 		"cmds.sendvideo":   "Enviar mensaje de video",
 		"cmds.sendaudio":   "Enviar mensaje de audio",
+		"cmds.show":        "abrir el adjunto #N (numerado [#N] en el chat, N o message-id) con tu visor del sistema",
 		"cmds.groups":      "Grupos",
 		"cmds.leave":       "Salir del grupo",
 		"cmds.create":      "Crear grupo con usuarios",
@@ -90,6 +92,9 @@ var translations = map[string]map[string]string{
 		"session.logout_warn":   "Advertencia: no se pudo cerrar sesión por completo: ",
 		"session.invalid_jid":   "JID inválido: ",
 
+		// /show N (attachment index)
+		"show.no_index": "no hay adjunto #%d en este chat",
+
 		// /lang command
 		"lang.usage":       "Uso: /lang es | /lang en",
 		"lang.unsupported": "Idioma no soportado. Usa: /lang es | /lang en",
@@ -118,7 +123,8 @@ var translations = map[string]map[string]string{
 		"help.select_msg":    "select message",
 		"help.download":      "Download attachment",
 		"help.open":          "Download & open attachment",
-		"help.show":          "Download & show image using",
+		"help.show":          "Download & open attachment with your system viewer",
+		"help.show_index":    "attachments are numbered [#N] per chat; /show N opens #N",
 		"help.url":           "Find URL in message and open it",
 		"help.click_link":    "Click a link to open it in your browser",
 		"help.revoke":        "Revoke message",
@@ -142,6 +148,7 @@ var translations = map[string]map[string]string{
 		"cmds.sendimage":   "Send image message",
 		"cmds.sendvideo":   "Send video message",
 		"cmds.sendaudio":   "Send audio message",
+		"cmds.show":        "open attachment #N (numbered [#N] in chat, N or message-id) with your system viewer",
 		"cmds.groups":      "Groups",
 		"cmds.leave":       "Leave group",
 		"cmds.create":      "Create group with users",
@@ -179,6 +186,9 @@ var translations = map[string]map[string]string{
 		"session.no_anchor":     "No local message anchor found yet. Open the chat after WhatsApp sync delivers some history, then try /backlog again.",
 		"session.logout_warn":   "Warning: Couldn't fully log out: ",
 		"session.invalid_jid":   "invalid JID: ",
+
+		// /show N (attachment index)
+		"show.no_index": "no attachment #%d in this chat",
 
 		// /lang command
 		"lang.usage":       "Usage: /lang es | /lang en",

@@ -1,6 +1,31 @@
 package messages
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"wash/config"
+)
+
+func TestMediaDirPathNestsInsideAppFolder(t *testing.T) {
+	origDl := config.Config.General.DownloadPath
+	origPrev := config.Config.General.PreviewPath
+	defer func() {
+		config.Config.General.DownloadPath = origDl
+		config.Config.General.PreviewPath = origPrev
+	}()
+	config.Config.General.DownloadPath = "/media/DL"
+	config.Config.General.PreviewPath = "/media/PV"
+
+	want := filepath.Join("/media/DL", config.AppFolder)
+	if got := mediaDirPath(false); got != want {
+		t.Fatalf("mediaDirPath(false) = %q, want %q", got, want)
+	}
+	want = filepath.Join("/media/PV", config.AppFolder)
+	if got := mediaDirPath(true); got != want {
+		t.Fatalf("mediaDirPath(true) = %q, want %q", got, want)
+	}
+}
 
 func TestDownloadFileNameSanitizesPathTraversal(t *testing.T) {
 	msg := Message{

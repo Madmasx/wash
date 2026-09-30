@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -235,5 +236,103 @@ func TestClipboardImageHelpers(t *testing.T) {
 
 	if _, err := writeTempImage(nil, "png"); err == nil {
 		t.Errorf("writeTempImage(empty) = nil error, want error")
+	}
+}
+
+// TestApplyQRText verifies the pairing QR code is appended below the existing
+// text, replaced in place on refresh, and removed once pairing finishes.
+func TestApplyQRText(t *testing.T) {
+	chat := "lin1\nlin2"
+
+	// first QR goes below the text
+	body, last := applyQRText(chat, "", "QR1")
+	if body != chat+"\nQR1" || last != "QR1" {
+		t.Fatalf("primer QR: body=%q last=%q", body, last)
+	}
+
+	// rotation replaces QR1 in place, text above untouched
+	body, last = applyQRText(body, last, "QR2")
+	if body != chat+"\nQR2" || last != "QR2" {
+		t.Fatalf("rotacion: body=%q last=%q", body, last)
+	}
+
+	// more chat text arrives, QR stays as the tail block
+	body = body + "\nlin3"
+
+	// pairing finished: block removed, text intact
+	body, last = applyQRText(body, last, "")
+	if body != chat+"\nlin3" || last != "" {
+		t.Fatalf("fin: body=%q last=%q", body, last)
+	}
+
+	// nothing before and no QR: empty body
+	body, last = applyQRText("", "", "")
+	if body != "" || last != "" {
+		t.Fatalf("vacio: body=%q last=%q", body, last)
+	}
+}
+
+// TestMediaNumbering verifies /show N resolves the per-chat attachment
+// numbering: media messages get 1-based numbers that restart per chat and per
+// screen rebuild.
+func TestMediaNumbering(t *testing.T) {
+	mediaIndexByChat = make(map[string][]string)
+	resetChatMediaIndex("chatA")
+
+	if n := assignMediaNumber("chatA", "id1"); n != 1 {
+		t.Fatalf("primer numero = %d, want 1", n)
+	}
+	if n := assignMediaNumber("chatA", "id2"); n != 2 {
+		t.Fatalf("segundo numero = %d, want 2", n)
+	}
+	if n := assignMediaNumber("chatA", "id3"); n != 3 {
+		t.Fatalf("tercer numero = %d, want 3", n)
+	}
+
+	if id, ok := resolveMediaNumber("chatA", 2); !ok || id != "id2" {
+		t.Fatalf("resolve 2 = %q, %v; want id2,true", id, ok)
+	}
+	if _, ok := resolveMediaNumber("chatA", 0); ok {
+		t.Fatal("resolve 0 debe fallar")
+	}
+	if _, ok := resolveMediaNumber("chatA", 4); ok {
+		t.Fatal("resolve 4 debe fallar (solo hay 3)")
+	}
+
+	// numbering resets per chat
+	if n := assignMediaNumber("chatB", "oid"); n != 1 {
+		t.Fatalf("otro chat empieza en 1, got %d", n)
+	}
+
+	// screen rebuild restarts the chat numbering
+	resetChatMediaIndex("chatA")
+	if n := assignMediaNumber("chatA", "id1"); n != 1 {
+		t.Fatalf("tras rebuild = %d, want 1", n)
+	}
+}
+
+// TestMediaTagFor verifies only media messages get the [#N] marker.
+func TestMediaTagFor(t *testing.T) {
+	mediaIndexByChat = make(map[string][]string)
+	resetChatMediaIndex("chatA")
+
+	img := messages.Message{Id: "i1", ChatId: "chatA", Kind: messages.MessageKindImage}
+	if tag := mediaTagFor(&img); tag != "[::b][#1][::-] " {
+		t.Fatalf("tag imagen = %q", tag)
+	}
+	for i, kind := range []messages.MessageKind{
+		messages.MessageKindVideo,
+		messages.MessageKindAudio,
+		messages.MessageKindDocument,
+	} {
+		want := "[::b][#" + strconv.Itoa(i+2) + "][::-] "
+		vid := messages.Message{Id: "m" + string(kind), ChatId: "chatA", Kind: kind}
+		if tag := mediaTagFor(&vid); tag != want {
+			t.Fatalf("tag %s = %q, want %q", kind, tag, want)
+		}
+	}
+	txt := messages.Message{Id: "t1", ChatId: "chatA", Kind: messages.MessageKindText}
+	if tag := mediaTagFor(&txt); tag != "" {
+		t.Fatalf("tag texto = %q, want ''", tag)
 	}
 }

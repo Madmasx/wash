@@ -2,8 +2,6 @@
 package messages
 
 import (
-	"io"
-
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 )
 
@@ -17,10 +15,9 @@ type UiMessageHandler interface {
 	RefreshLanguage()
 	PrintError(error)
 	PrintText(string)
-	PrintFile(string)
 	SetStatus(SessionStatus)
 	OpenFile(string)
-	GetWriter() io.Writer
+	SetQRCode(string)
 }
 
 // data struct for current session status
