@@ -54,6 +54,11 @@ var uiHandler messages.UiMessageHandler
 // copies. It is only touched from the UI (QueueUpdateDraw) goroutine.
 var lastQRText string
 
+// lastHelpOverlay keeps the exact text of the last help/commands overlay
+// printed into the view, so renderHelpOverlay can replace it in place instead
+// of stacking duplicates every time /help, /commands or Ctrl+p is pressed.
+var lastHelpOverlay string
+
 // mediaIndexByChat maps, per chat, the ordered ids of the media messages shown
 // in that chat's view, so /show N can resolve a per-chat image number (1..K,
 // reset per chat) to its message id. It is only touched from the UI goroutine.
@@ -99,7 +104,7 @@ func main() {
 	textView.SetTextColor(tcell.ColorNames[config.Config.Colors.Text])
 	textView.SetMouseCapture(linkClickCapture)
 
-	PrintHelp()
+	renderHelpOverlay(PrintHelp)
 
 	textInput = tview.NewInputField()
 	textInput.SetBackgroundColor(tcell.ColorNames[config.Config.Colors.Background])
@@ -398,8 +403,7 @@ func handleQuit(ev *tcell.EventKey) *tcell.EventKey {
 }
 
 func handleHelp(ev *tcell.EventKey) *tcell.EventKey {
-	PrintHelp()
-	PrintCommands()
+	renderHelpOverlay(PrintHelp, PrintCommands)
 	return nil
 }
 
@@ -557,6 +561,25 @@ func LoadShortcuts() {
 }
 
 // prints help to chat view
+// renderHelpOverlay prints the given help/commands sections, replacing in
+// place whatever overlay was rendered last. The rest of the view — chat
+// messages or the pairing QR block — is never touched, so calling it several
+// times (boot, /help, Ctrl+p, /commands) does not stack copies.
+func renderHelpOverlay(parts ...func()) {
+	body := textView.GetText(false)
+	if lastHelpOverlay != "" {
+		if idx := strings.LastIndex(body, lastHelpOverlay); idx >= 0 {
+			body = body[:idx] + body[idx+len(lastHelpOverlay):]
+		}
+	}
+	textView.SetText(body)
+	startLen := len(body)
+	for _, p := range parts {
+		p()
+	}
+	lastHelpOverlay = textView.GetText(false)[startLen:]
+}
+
 func PrintHelp() {
 	cmdPrefix := config.Config.General.CmdPrefix
 	tviewLine("[-::u]" + config.T("help.keys") + "[-::-]")
@@ -634,12 +657,12 @@ func EnterCommand(key tcell.Key) {
 	}
 	cmdPrefix := config.Config.General.CmdPrefix
 	if sndTxt == cmdPrefix+"help" {
-		PrintHelp()
+		renderHelpOverlay(PrintHelp)
 		textInput.SetText("")
 		return
 	}
 	if sndTxt == cmdPrefix+"commands" {
-		PrintCommands()
+		renderHelpOverlay(PrintCommands)
 		textInput.SetText("")
 		return
 	}
@@ -1037,7 +1060,7 @@ func (u UiHandler) NewScreen(msgs []messages.Message) {
 		curRegions = msgs
 		if screen == "" {
 			if currentReceiver.Id == "" {
-				PrintHelp()
+				renderHelpOverlay(PrintHelp)
 			} else {
 				PrintText("[::d] " + fmt.Sprintf(config.T("ui.no_messages"), config.Config.Keymap.CommandBacklog) + " [::-]")
 			}
@@ -1147,8 +1170,7 @@ func (u UiHandler) RefreshLanguage() {
 		groupRoot.SetText(config.T("ui.groups"))
 		statusRoot.SetText(config.T("ui.statuses"))
 		contactRoot.SetText(config.T("ui.contacts"))
-		PrintHelp()
-		PrintCommands()
+		renderHelpOverlay(PrintHelp, PrintCommands)
 	})
 }
 
